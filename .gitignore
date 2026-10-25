@@ -1,0 +1,16 @@
+# Build output
+build/
+release/
+*.obj
+*.exe
+*.asi
+*.exp
+*.lib
+__pycache__/
+
+# ScriptHookRDR2 SDK: redistribution is not allowed, download it from dev-c.com
+sdk/
+
+# Runtime files written next to the .asi
+*.log
+*.state
