@@ -128,7 +128,7 @@ void MenuController::draw() {
         case ItemKind::Submenu: v = ">"; break;
         case ItemKind::Action: v = ""; break;
         }
-        if (!v.empty()) text(v, L.x + L.width * 0.56f, y + L.lineHeight * 0.12f, fg);
+        if (!v.empty()) text(v, L.x + L.width * 0.62f, y + L.lineHeight * 0.12f, fg);
         y += L.lineHeight;
     }
     rect(L.x, y, L.width, L.lineHeight * 0.9f, titleBg);

@@ -137,8 +137,8 @@ static void buildMenus() {
     };
     g_settings.items.push_back(radius);
 
-    toggle("Include animals (Panic, glass jaw)", &s.includeAnimals, false);
-    toggle("Exclude lawmen and guards", &s.excludeLawmen, false);
+    toggle("Include animals", &s.includeAnimals, false);        // Panic and glass jaw only (see ini)
+    toggle("Exclude lawmen/guards", &s.excludeLawmen, false);
 
     ui::Item level;
     level.kind = ui::ItemKind::Choice;
@@ -153,7 +153,7 @@ static void buildMenus() {
     };
     g_settings.items.push_back(level);
 
-    toggle("Drunk stumbling (ragdoll)", &s.drunkStumble, false);
+    toggle("Drunk stumbling", &s.drunkStumble, false);
     toggle("Give weapons (Aggressive)", &s.giveWeapons, false);
     toggle("Disable law (Aggressive)", &s.disableLaw, true);
     toggle("Bump triggers glass jaw", &s.bumpTrigger, false);
