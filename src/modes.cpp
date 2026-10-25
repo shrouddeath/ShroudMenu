@@ -234,7 +234,7 @@ struct PanicMode : NpcMode {
     }
 };
 
-// ---- experimental: helpers for pair modes ------------------------------------------
+// ---- helpers for the pair modes (Robbery, Lasso) ------------------------------------
 
 // Nearest free, living, human NPC within maxDist that passes extraOk.
 template <typename Ok>
@@ -267,7 +267,7 @@ static void freeRole(TrackedNpc& s, unsigned long until) {
     s.cooldownUntil = until;
 }
 
-// ---- Robbery (experimental) -----------------------------------------------------------
+// ---- Robbery ----------------------------------------------------------------------------
 // Pairs: a robber draws a gun on a victim, the victim raises the hands, hands over the
 // money and runs; then both are free again and may rob or be robbed next.
 
@@ -362,10 +362,11 @@ struct RobberyMode : NpcMode {
     }
 };
 
-// ---- Lasso (experimental, second attempt) ----------------------------------------------
+// ---- Lasso ------------------------------------------------------------------------------
 // Everyone gets a lasso in the hand. Pairs: the thrower walks up to the target, throws
-// (TASK_LASSO_PED), hogties the catch; the catch breaks free after a few seconds and may
-// take revenge next round. Every step and the script task status go to the log.
+// (TASK_LASSO_PED), holds the catch on the rope (or hogties it, Hogtie=1) and lets go
+// after a few seconds; the catch may take revenge next round. Every step and the script
+// task status go to the log.
 
 struct LassoMode : NpcMode {
     const Hash lasso = joaat("WEAPON_LASSO");
@@ -517,7 +518,7 @@ struct LassoMode : NpcMode {
 
         s.role = 1; s.partner = target; s.retries = 0;
         t.role = 2; t.partner = ped; t.phase = 1;
-        // the thrower must not be distracted (status 2 = dormant in the first test), the target
+        // the thrower must not be distracted (the throw task goes dormant otherwise), the target
         // must not run its lasso reaction task, otherwise the rope rarely lands
         SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(ped, true); s.eventsBlocked = true;
         SET_PED_LASSO_HOGTIE_FLAG(target, 4, false);

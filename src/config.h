@@ -33,7 +33,7 @@ std::vector<std::string> splitList(const std::string& text);
 std::string trim(const std::string& s);
 std::string lower(const std::string& s);
 
-// Robbery and Lasso are experimental (see [Robbery] and [Lasso] in the ini).
+// Robbery and Lasso pair NPCs with each other (see [Robbery] and [Lasso] in the ini).
 enum class Mode { Off = 0, Drunk, Insult, Aggressive, Panic, Robbery, Lasso, Count };
 const char* modeName(Mode m);
 
@@ -104,7 +104,7 @@ struct Config {
     int panicFleeType = 0;
     std::vector<std::string> panicLines;
 
-    // robbery (experimental)
+    // robbery
     float robDistance = 12.0f;
     int robHoldupSec = 5;
     int robCooldownMinSec = 8, robCooldownMaxSec = 20;
@@ -112,10 +112,10 @@ struct Config {
     Hash robSpeechParams = 0;
     std::vector<std::string> robRobberLines, robVictimLines, robHandOverLines, robFleeLines;
 
-    // lasso (experimental)
+    // lasso
     float lassoDistance = 15.0f;      // pick a target within this range
     float lassoThrowDistance = 5.0f;  // walk up to this range before throwing
-    bool lassoHogtie = false;         // hogtie never completed in the tests; off = catch and hold
+    bool lassoHogtie = false;         // off = catch and hold on the rope; on = hogtie the catch (optional)
     int lassoHogtieHoldSec = 6;
     int lassoTimeoutSec = 20;
     int lassoCooldownMinSec = 5, lassoCooldownMaxSec = 15;

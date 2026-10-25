@@ -1,9 +1,9 @@
 # ShroudMenu - RDR2 (Story Mode)
 
 A small in-game menu that changes how the people around you behave: make everyone
-drunk, have them insult you, attack you or run away screaming, and drop anyone you
-hit to the ground. It never touches you, your gang or anyone a mission is using, so
-the story keeps working.
+drunk, have them insult you, attack you or run away screaming, let them rob and lasso
+each other, and drop anyone you hit to the ground. It never touches you, your gang or
+anyone a mission is using, so the story keeps working.
 
 **Download for players:** [Nexus Mods](https://www.nexusmods.com/reddeadredemption2/mods/11287)
 or the [release zip](https://github.com/shrouddeath/ShroudMenu/releases/latest). This repository holds the source code.
@@ -23,6 +23,8 @@ applies to everyone within the radius around you:
 | Insulting | people who see you insult you, curse at you or tell you to get lost |
 | Aggressive | everyone attacks you (brawling; optionally armed) |
 | Panic | everyone screams and runs from you |
+| Robbery | the people around you rob each other: a gun is drawn, hands go up, money changes hands, the victim runs |
+| Lasso | everyone carries a lasso and ropes the next person, holds the catch a few seconds and lets go |
 
 **Glass jaw** is a separate switch that stacks on any mode: whoever you hit drops to
 the ground like a sack, gets up again and never dies from it. Options: bumping into
@@ -32,7 +34,8 @@ people is enough, and they do not fight back.
 and guards, drunk level, stumbling, weapons and "disable law" for Aggressive, bump
 trigger and no retaliation for glass jaw, overlay on/off. **Reset all NPCs** undoes
 everything at once. Menu settings are remembered in `ShroudMenu.state`; the NPC mode
-always starts as Off.
+always starts as Off. Distances, timings, weapons and speech lines of every mode,
+including `[Robbery]` and `[Lasso]`, are in `ShroudMenu.ini`.
 
 ## Story protection
 
@@ -52,7 +55,10 @@ tracked and undone when the NPC leaves the area, the mode changes or the player 
 
 Good to know: with glass jaw on, hit NPCs are healed every time, so they cannot be
 killed. In Aggressive mode witnesses still report you unless "Disable law" is on.
-F5 belongs to popular trainers and F8 to ScriptHookRDR2 .NET, hence F6.
+Robbery is a crime like any other: bystanders may panic and the law may step in.
+Lasso catches are held on the rope; hogtying can be switched on in the ini (`Hogtie=1`),
+but the AI rarely finishes it. F5 belongs to popular trainers and F8 to ScriptHookRDR2 .NET,
+hence F6.
 
 ## Build
 
@@ -66,7 +72,7 @@ Visual Studio 2022 with C++ (x64) and the ScriptHookRDR2 SDK unpacked to `sdk\`
 ```
 src/
   script.cpp    main loop, menu wiring, overlay
-  modes.cpp     the modes (Drunk, Insulting, Aggressive, Panic) and glass jaw
+  modes.cpp     the modes (Drunk, Insulting, Aggressive, Panic, Robbery, Lasso) and glass jaw
   scanner.cpp   which NPCs may be touched (story protection, lawmen, radius)
   speech.cpp    PLAY_PED_AMBIENT_SPEECH_NATIVE with the ScriptedSpeechParams struct
   ui.cpp        menu drawing and navigation
@@ -74,13 +80,13 @@ src/
   natives.h     natives called by hash (RDR3 NativeDB)
 ```
 
-Research notes on the natives used (German): [docs/NATIVES.md](docs/NATIVES.md).
+Notes on the natives used: [docs/NATIVES.md](docs/NATIVES.md).
 
 ## Credits
 
 - Alexander Blade - ScriptHookRDR2
 - alloc8or - RDR3 Native DB
-- femga - rdr3_discoveries (relationship groups, speech parameters, ped list)
+- femga - rdr3_discoveries (relationship groups, speech parameters, lasso flags, ped list)
 - rdr2mods.com - speech line database and the "Making NPCs speak" thread
 
 ## License

@@ -18,7 +18,7 @@
 #include "natives.h"
 #include "ui.h"
 
-static const char* kVersion = "1.0.0";
+static const char* kVersion = "1.1.0";
 
 static HMODULE g_module = nullptr;
 static std::string g_dir;

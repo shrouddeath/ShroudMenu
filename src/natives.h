@@ -168,7 +168,7 @@ inline bool IS_ANY_SPEECH_PLAYING(Ped p) { return native::invoke<int>(0x72907235
 inline void SET_PED_IS_DRUNK(Ped p, bool on) { native::invoke<void>(0x95D2D383D5396B8A, p, on ? 1 : 0); }
 inline void PLAY_SOUND_FRONTEND(const char* name, const char* set) { native::invoke<void>(0x67C540AA08E4A6F5, name, set, 1, 0); }
 
-// ---- EXPERIMENTAL: robbery ---------------------------------------------------
+// ---- ROBBERY -----------------------------------------------------------------
 inline void TASK_AIM_GUN_AT_ENTITY(Ped p, Entity target, int durationMs) { native::invoke<void>(0x9B53BB6E8943AF53, p, target, durationMs, 0, 0); }
 // flags: 0 = HANDS_UP_NOTHING, 1 = HANDS_UP_STRAIGHT_TO_LOOP
 inline void TASK_HANDS_UP(Ped p, int durationMs, Ped facing, int timeToFaceMs, int flags) {
@@ -183,7 +183,7 @@ inline void TASK_GO_TO_ENTITY(Ped p, Entity target, int durationMs, float stopDi
 // 0 WAITING_TO_START, 1 PERFORMING, 2 DORMANT, 3 VACANT, 7 TASK_NOT_FOUND, 8 FINISHED (eScriptTaskHash in docs)
 inline int GET_SCRIPT_TASK_STATUS(Ped p, Hash scriptTask) { return native::invoke<int>(0x77F1BEB8863288D5, p, scriptTask, 0); }
 
-// ---- EXPERIMENTAL: lasso -----------------------------------------------------
+// ---- LASSO -------------------------------------------------------------------
 inline void TASK_LASSO_PED(Ped p, Ped target) { native::invoke<void>(0xC716EB2BD16370A3, p, target); }
 inline void TASK_HOGTIE_TARGET_PED(Ped p, Ped target) { native::invoke<void>(0x27829AFD3E03AC1A, p, target); }
 inline bool IS_PED_LASSOED(Ped p) { return native::invoke<int>(0x9682F850056C9ADE, p) != 0; }
