@@ -40,8 +40,8 @@ static std::string moduleDirectory() {
     return slash == std::string::npos ? "." : dir.substr(0, slash);
 }
 
+// On-screen message only; the manager already logs every state change.
 static void notify(const std::string& text) {
-    logfile::write("%s", text.c_str());
     g_message = text;
     g_messageUntil = GetTickCount() + 3500;
 }
