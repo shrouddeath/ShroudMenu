@@ -5,7 +5,8 @@ drunk, have them insult you, attack you or run away screaming, and drop anyone y
 hit to the ground. It never touches you, your gang or anyone a mission is using, so
 the story keeps working.
 
-**Download for players:** Nexus Mods (release zip). This repository holds the source code.
+**Download for players:** [Nexus Mods](https://www.nexusmods.com/reddeadredemption2/mods/11287)
+or the [release zip](https://github.com/shrouddeath/ShroudMenu/releases/latest). This repository holds the source code.
 
 > Story mode only. Never start Red Dead Online with script mods installed.
 
