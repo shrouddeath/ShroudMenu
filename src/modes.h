@@ -29,12 +29,10 @@ struct TrackedNpc {
     Ped partner = 0;
     int role = 0;                 // 0 free, 1 active (robber / lassoer), 2 passive (victim / target)
     int phase = 0;
+    unsigned long phaseStart = 0;
     unsigned long phaseUntil = 0;
     unsigned long cooldownUntil = 0;
-
-    // Legs
-    int origMaxHealth = 0;
-    bool wasWrithing = false;
+    int lastTaskStatus = -1;
 };
 
 struct ModeContext {

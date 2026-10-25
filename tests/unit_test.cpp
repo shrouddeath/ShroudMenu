@@ -143,13 +143,13 @@ int main() {
     }
 
     CHECK(std::string(modeName(Mode::Drunk)) == "Drunk");
-    CHECK(std::string(modeName(Mode::Legs)) == "Lame legs");
+    CHECK(std::string(modeName(Mode::Robbery)) == "Robbery");
     CHECK(std::string(modeName(Mode::Lasso)) == "Lasso");
     {
         Config c = loadConfig("Z:\\does\\not\\exist");
         CHECK(c.robRobberLines.size() == 3 && c.robVictimLines.size() == 5);
-        CHECK(c.lassoLassoerLines.size() == 3 && c.lassoHogtie);
-        CHECK(c.legsCrawl && c.legsLimp && c.legsDamage == 120 && c.legsBoneId == 65478);
+        CHECK(c.lassoLassoerLines.size() == 3 && c.lassoHogtie && !c.lassoTargetFlees);
+        CHECK(c.lassoThrowDistance > 6.9f && c.lassoThrowDistance < 7.1f);
     }
     CHECK(splitList(" a, b ,,c ").size() == 3);
 
