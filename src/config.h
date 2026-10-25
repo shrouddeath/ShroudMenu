@@ -114,8 +114,8 @@ struct Config {
 
     // lasso (experimental)
     float lassoDistance = 15.0f;      // pick a target within this range
-    float lassoThrowDistance = 7.0f;  // walk up to this range before throwing
-    bool lassoHogtie = true;
+    float lassoThrowDistance = 5.0f;  // walk up to this range before throwing
+    bool lassoHogtie = false;         // hogtie never completed in the tests; off = catch and hold
     int lassoHogtieHoldSec = 6;
     int lassoTimeoutSec = 20;
     int lassoCooldownMinSec = 5, lassoCooldownMaxSec = 15;

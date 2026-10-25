@@ -392,11 +392,15 @@ struct LassoMode : NpcMode {
         if (alive(lassoer)) {
             SET_PED_KEEP_TASK(lassoer, false);
             CLEAR_PED_TASKS(lassoer);
+            SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(lassoer, false);
             TASK_WANDER_STANDARD(lassoer);
         }
+        l.eventsBlocked = false;
+        l.retries = 0;
         freeRole(l, ctx.now + ctx.randMs(c.lassoCooldownMinSec, c.lassoCooldownMaxSec));
         if (t) {
             if (alive(target)) {
+                SET_PED_LASSO_HOGTIE_FLAG(target, 4, true);   // react task allowed again
                 if (IS_PED_HOGTIED(target) || IS_PED_BEING_HOGTIED(target)) _SET_HOGTIE_ESCAPE_TIMER(target, 1.0f);
                 else if (!IS_PED_LASSOED(target)) CLEAR_PED_TASKS(target);
             }
@@ -404,6 +408,15 @@ struct LassoMode : NpcMode {
             freeRole(*t, ctx.now + static_cast<unsigned long>(ctx.randRange(2000, 6000)));
         }
         logfile::write("lasso: %d -> %d %s", lassoer, target, why);
+    }
+
+    void throwAt(Ped ped, Ped target, TrackedNpc& s, ModeContext& ctx, const char* what) {
+        SET_CURRENT_PED_WEAPON(ped, lasso, true);
+        TASK_LASSO_PED(ped, target);
+        SET_PED_KEEP_TASK(ped, true);
+        s.phaseStart = ctx.now;
+        s.lastTaskStatus = -1;
+        logfile::write("lasso: %d %s %d (%.1f m)", ped, what, target, distanceTo(ped, target));
     }
 
     void startPhase(TrackedNpc& s, int phase, unsigned long now, unsigned long durationMs) {
@@ -433,12 +446,12 @@ struct LassoMode : NpcMode {
 
             if (s.phase == 0) {   // walking up
                 if (d <= c.lassoThrowDistance) {
-                    SET_CURRENT_PED_WEAPON(ped, lasso, true);
-                    TASK_LASSO_PED(ped, target);
-                    SET_PED_KEEP_TASK(ped, true);
                     if (c.lassoTargetFlees) TASK_SMART_FLEE_PED(target, ped, 30.0f, c.lassoTimeoutSec * 1000, 0, c.lassoFleeSpeed);
-                    startPhase(s, 1, ctx.now, static_cast<unsigned long>(c.lassoTimeoutSec) * 1000);
-                    logfile::write("lasso: %d throws at %d (%.1f m)", ped, target, d);
+                    else TASK_STAND_STILL(target, c.lassoTimeoutSec * 1000);
+                    unsigned long until = ctx.now + static_cast<unsigned long>(c.lassoTimeoutSec) * 1000;
+                    throwAt(ped, target, s, ctx, "throws at");
+                    s.phase = 1;
+                    s.phaseUntil = until;
                 } else if (ctx.now >= s.phaseUntil) {
                     finish(ped, s, target, t, ctx, "(never got close)");
                 }
@@ -449,20 +462,31 @@ struct LassoMode : NpcMode {
                 if (IS_PED_LASSOED(target)) {
                     logfile::write("lasso: %d caught %d", ped, target);
                     if (speech::globalSlot(ctx.now, 300)) speech::sayOneOf(target, c.lassoTargetLines, c.lassoSpeechParams, ped);
+                    if (speech::globalSlot(ctx.now, 300)) speech::sayOneOf(ped, c.lassoLassoerLines, c.lassoSpeechParams, target);
                     if (c.lassoHogtie) {
                         TASK_HOGTIE_TARGET_PED(ped, target);
-                        if (speech::globalSlot(ctx.now, 300)) speech::sayOneOf(ped, c.lassoLassoerLines, c.lassoSpeechParams, target);
                         startPhase(s, 2, ctx.now, 15000);
                     } else {
                         startPhase(s, 3, ctx.now, static_cast<unsigned long>(c.lassoHogtieHoldSec) * 1000);
                     }
                 } else if (ctx.now >= s.phaseUntil) {
                     finish(ped, s, target, t, ctx, "(gave up, no catch)");
-                } else if (s.lastTaskStatus == 7 && ctx.now - s.phaseStart > 2500 && d > c.lassoThrowDistance + 3.0f) {
-                    // the task was dropped (status 7 = not found) and the target walked off: chase and retry
-                    TASK_GO_TO_ENTITY(ped, target, 8000, c.lassoThrowDistance - 1.0f, 2.0f);
-                    startPhase(s, 0, ctx.now, 10000);
-                    logfile::write("lasso: %d lost the throw, walks after %d again", ped, target);
+                } else if (ctx.now - s.phaseStart > 3000 && s.lastTaskStatus != 1 && s.lastTaskStatus != 0) {
+                    // the throw ended (8), was interrupted (2) or dropped (7) without a catch: try again
+                    if (s.retries >= 3) { finish(ped, s, target, t, ctx, "(gave up after 3 throws)"); return; }
+                    s.retries++;
+                    if (d > c.lassoThrowDistance + 2.0f) {
+                        TASK_GO_TO_ENTITY(ped, target, 8000, c.lassoThrowDistance - 1.0f, 2.0f);
+                        s.phase = 0;
+                        s.phaseStart = ctx.now;
+                        s.phaseUntil = ctx.now + 10000;
+                        logfile::write("lasso: %d walks after %d again (retry %d)", ped, target, s.retries);
+                    } else {
+                        if (!c.lassoTargetFlees) TASK_STAND_STILL(target, c.lassoTimeoutSec * 1000);
+                        char what[32];
+                        snprintf(what, sizeof(what), "throws again (%d) at", s.retries);
+                        throwAt(ped, target, s, ctx, what);
+                    }
                 }
                 return;
             }
@@ -491,8 +515,12 @@ struct LassoMode : NpcMode {
         if (!target) { s.cooldownUntil = ctx.now + 2000; return; }
         TrackedNpc& t = (*ctx.tracked)[target];
 
-        s.role = 1; s.partner = target;
+        s.role = 1; s.partner = target; s.retries = 0;
         t.role = 2; t.partner = ped; t.phase = 1;
+        // the thrower must not be distracted (status 2 = dormant in the first test), the target
+        // must not run its lasso reaction task, otherwise the rope rarely lands
+        SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(ped, true); s.eventsBlocked = true;
+        SET_PED_LASSO_HOGTIE_FLAG(target, 4, false);
         float d = distanceTo(ped, target);
         if (d > c.lassoThrowDistance) TASK_GO_TO_ENTITY(ped, target, c.lassoTimeoutSec * 1000, c.lassoThrowDistance - 1.0f, 2.0f);
         startPhase(s, 0, ctx.now, static_cast<unsigned long>(c.lassoTimeoutSec) * 1000);
@@ -507,7 +535,9 @@ struct LassoMode : NpcMode {
             if (l && l->partner == ped) finish(s.partner, *l, ped, &s, ctx, "(mode off)");
         }
         if (!alive(ped)) return;
+        if (s.eventsBlocked) { SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(ped, false); s.eventsBlocked = false; }
         SET_PED_LASSO_HOGTIE_FLAG(ped, 2, false);
+        SET_PED_LASSO_HOGTIE_FLAG(ped, 4, true);
         if (IS_PED_HOGTIED(ped) || IS_PED_BEING_HOGTIED(ped)) _SET_HOGTIE_ESCAPE_TIMER(ped, 0.5f);
         if (s.weaponGiven) { REMOVE_WEAPON_FROM_PED(ped, s.weaponGiven); s.weaponGiven = 0; }
         else SET_CURRENT_PED_WEAPON(ped, joaat("WEAPON_UNARMED"), true);

@@ -175,6 +175,7 @@ inline void TASK_HANDS_UP(Ped p, int durationMs, Ped facing, int timeToFaceMs, i
     native::invoke<void>(0xF2EAB31979A7F910, p, durationMs, facing, timeToFaceMs, flags);
 }
 inline void TASK_WANDER_STANDARD(Ped p) { native::invoke<void>(0xBB9CE077274F6A1B, p, 10.0f, 10); }
+inline void TASK_STAND_STILL(Ped p, int durationMs) { native::invoke<void>(0x919BE13EED931959, p, durationMs); }
 inline void SET_CURRENT_PED_WEAPON(Ped p, Hash weapon, bool equipNow) { native::invoke<void>(0xADF692B254977C0C, p, weapon, equipNow ? 1 : 0, 0, 0, 0); }
 inline void TASK_GO_TO_ENTITY(Ped p, Entity target, int durationMs, float stopDistance, float speed) {
     native::invoke<void>(0x6A071245EB0D1882, p, target, durationMs, stopDistance, speed, 0.0f, 0);

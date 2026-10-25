@@ -33,6 +33,7 @@ struct TrackedNpc {
     unsigned long phaseUntil = 0;
     unsigned long cooldownUntil = 0;
     int lastTaskStatus = -1;
+    int retries = 0;
 };
 
 struct ModeContext {

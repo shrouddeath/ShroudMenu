@@ -148,8 +148,8 @@ int main() {
     {
         Config c = loadConfig("Z:\\does\\not\\exist");
         CHECK(c.robRobberLines.size() == 3 && c.robVictimLines.size() == 5);
-        CHECK(c.lassoLassoerLines.size() == 3 && c.lassoHogtie && !c.lassoTargetFlees);
-        CHECK(c.lassoThrowDistance > 6.9f && c.lassoThrowDistance < 7.1f);
+        CHECK(c.lassoLassoerLines.size() == 3 && !c.lassoHogtie && !c.lassoTargetFlees);
+        CHECK(c.lassoThrowDistance > 4.9f && c.lassoThrowDistance < 5.1f);
     }
     CHECK(splitList(" a, b ,,c ").size() == 3);
 
