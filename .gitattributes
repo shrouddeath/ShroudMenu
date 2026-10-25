@@ -1,0 +1,5 @@
+# Normalise line endings; batch files stay CRLF for cmd.exe
+* text=auto
+*.bat text eol=crlf
+*.ini text eol=crlf
+*.txt text eol=crlf
