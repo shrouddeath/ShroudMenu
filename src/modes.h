@@ -24,6 +24,17 @@ struct TrackedNpc {
     unsigned long ragdollUntil = 0;
     unsigned long lastSeen = 0;
     int hits = 0;
+
+    // pair modes (Robbery, Lasso)
+    Ped partner = 0;
+    int role = 0;                 // 0 free, 1 active (robber / lassoer), 2 passive (victim / target)
+    int phase = 0;
+    unsigned long phaseUntil = 0;
+    unsigned long cooldownUntil = 0;
+
+    // Legs
+    int origMaxHealth = 0;
+    bool wasWrithing = false;
 };
 
 struct ModeContext {
@@ -34,6 +45,7 @@ struct ModeContext {
     float radius = 60.0f;
     float exitRadius = 120.0f;
     std::mt19937* rng = nullptr;
+    std::unordered_map<Ped, TrackedNpc>* tracked = nullptr;   // all tracked NPCs, for pairing
 
     int randRange(int lo, int hi) const;
     unsigned long randMs(int minSec, int maxSec) const;

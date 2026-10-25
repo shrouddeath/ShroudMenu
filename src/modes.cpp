@@ -234,6 +234,314 @@ struct PanicMode : NpcMode {
     }
 };
 
+// ---- experimental: helpers for pair modes ------------------------------------------
+
+// Nearest free, living, human NPC within maxDist that passes extraOk.
+template <typename Ok>
+static Ped findPartner(Ped self, ModeContext& ctx, float maxDist, Ok extraOk) {
+    Ped best = 0;
+    float bestDist = maxDist;
+    Vector3 me = GET_ENTITY_COORDS(self);
+    for (auto& [other, t] : *ctx.tracked) {
+        if (other == self || !t.entered || !t.human || t.role != 0 || ctx.now < t.cooldownUntil) continue;
+        if (!DOES_ENTITY_EXIST(other) || IS_ENTITY_DEAD(other) || IS_PED_RAGDOLL(other) || IS_PED_ON_MOUNT(other)) continue;
+        if (!extraOk(other)) continue;
+        float d = distanceBetween(me, GET_ENTITY_COORDS(other));
+        if (d < bestDist) { bestDist = d; best = other; }
+    }
+    return best;
+}
+
+static TrackedNpc* trackedOf(ModeContext& ctx, Ped ped) {
+    auto it = ctx.tracked->find(ped);
+    return it == ctx.tracked->end() ? nullptr : &it->second;
+}
+
+static bool alive(Ped ped) { return ped && DOES_ENTITY_EXIST(ped) && !IS_ENTITY_DEAD(ped); }
+
+static void freeRole(TrackedNpc& s, unsigned long until) {
+    s.role = 0;
+    s.partner = 0;
+    s.phase = 0;
+    s.phaseUntil = 0;
+    s.cooldownUntil = until;
+}
+
+// ---- Lame legs (experimental) ---------------------------------------------------------
+// Limp: injured locomotion. Crawl: put the ped into the writhe state (what happens after a
+// leg shot) by applying damage, and pause the bleedout so nobody dies of it.
+
+struct LegsMode : NpcMode {
+    Mode id() const override { return Mode::Legs; }
+
+    void onEnter(Ped ped, TrackedNpc& s, ModeContext& ctx) override {
+        const Config& c = *ctx.cfg;
+        if (!s.human) return;
+        if (c.legsLimp) {
+            _FAKE_SET_PED_LOCO_INJURED(ped, true);
+            SET_PED_CONFIG_FLAG(ped, 336 /* PCF_ForceInjuredMovement */, true);
+        }
+        if (c.legsCrawl && !IS_PED_ON_MOUNT(ped)) {
+            s.origMaxHealth = GET_ENTITY_MAX_HEALTH(ped);
+            SET_PED_INJURED_ON_GROUND_BEHAVIOUR(ped, c.legsGroundBehaviour);
+            SET_PAUSE_PED_WRITHE_BLEEDOUT(ped, true);
+            if (s.origMaxHealth < c.legsHealthBefore) SET_PED_MAX_HEALTH(ped, c.legsHealthBefore);
+            SET_ENTITY_HEALTH(ped, c.legsHealthBefore);
+            APPLY_DAMAGE_TO_PED(ped, c.legsDamage, false, c.legsBoneId, 0);
+            logfile::debug("legs: ped %d max health %d, health now %d, writhe %d", ped, s.origMaxHealth,
+                           GET_ENTITY_HEALTH(ped), IS_PED_IN_WRITHE(ped) ? 1 : 0);
+        }
+        s.nextRetask = ctx.now + 2000;
+    }
+
+    void onTick(Ped ped, TrackedNpc& s, ModeContext& ctx, float) override {
+        if (!s.human || ctx.now < s.nextRetask) return;
+        s.nextRetask = ctx.now + 2000;
+        const Config& c = *ctx.cfg;
+        bool writhing = IS_PED_IN_WRITHE(ped);
+        if (writhing != s.wasWrithing) {
+            logfile::debug("legs: ped %d %s (health %d)", ped, writhing ? "crawls" : "stopped crawling", GET_ENTITY_HEALTH(ped));
+            s.wasWrithing = writhing;
+        }
+        if (c.legsCrawl) {
+            int hp = GET_ENTITY_HEALTH(ped);
+            if (hp > 0 && hp < 40) SET_ENTITY_HEALTH(ped, 70);   // never let a bleedout finish
+            SET_PAUSE_PED_WRITHE_BLEEDOUT(ped, true);
+        }
+        if (c.legsLimp && !writhing) _FAKE_SET_PED_LOCO_INJURED(ped, true);
+    }
+
+    void onExit(Ped ped, TrackedNpc& s, ModeContext&) override {
+        if (IS_ENTITY_DEAD(ped)) return;
+        _FAKE_SET_PED_LOCO_INJURED(ped, false);
+        SET_PED_CONFIG_FLAG(ped, 336, false);
+        SET_PAUSE_PED_WRITHE_BLEEDOUT(ped, false);
+        DISABLE_PED_INJURED_ON_GROUND_BEHAVIOUR(ped);
+        if (IS_PED_IN_WRITHE(ped)) REVIVE_INJURED_PED(ped);
+        if (s.origMaxHealth > 0) {
+            SET_PED_MAX_HEALTH(ped, s.origMaxHealth);
+            SET_ENTITY_HEALTH(ped, s.origMaxHealth);
+        } else {
+            SET_ENTITY_HEALTH(ped, GET_ENTITY_MAX_HEALTH(ped));
+        }
+    }
+};
+
+// ---- Robbery (experimental) -----------------------------------------------------------
+// Pairs: a robber draws a gun on a victim, the victim raises the hands, hands over the
+// money and runs; then both are free again and may rob or be robbed next.
+
+struct RobberyMode : NpcMode {
+    Mode id() const override { return Mode::Robbery; }
+
+    void onEnter(Ped, TrackedNpc& s, ModeContext& ctx) override {
+        freeRole(s, ctx.now + static_cast<unsigned long>(ctx.randRange(500, 4000)));
+    }
+
+    void finish(Ped robber, TrackedNpc& r, Ped victim, TrackedNpc* v, ModeContext& ctx, bool aborted) {
+        const Config& c = *ctx.cfg;
+        if (alive(robber)) {
+            CLEAR_PED_TASKS(robber);
+            SET_CURRENT_PED_WEAPON(robber, joaat("WEAPON_UNARMED"), true);
+            SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(robber, false);
+            if (!aborted) TASK_WANDER_STANDARD(robber);
+        }
+        r.eventsBlocked = false;
+        freeRole(r, ctx.now + ctx.randMs(c.robCooldownMinSec, c.robCooldownMaxSec));
+        if (v) {
+            if (alive(victim)) {
+                CLEAR_PED_TASKS(victim);
+                SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(victim, false);
+                if (!aborted) {
+                    TASK_SMART_FLEE_PED(victim, robber, 40.0f, 8000, 0, 3.0f);
+                    if (speech::globalSlot(ctx.now, 300)) speech::sayOneOf(victim, c.robFleeLines, c.robSpeechParams, robber);
+                }
+            }
+            v->eventsBlocked = false;
+            freeRole(*v, ctx.now + ctx.randMs(c.robCooldownMinSec, c.robCooldownMaxSec));
+        }
+        logfile::debug("robbery: %d robbed %d %s", robber, victim, aborted ? "(aborted)" : "(done)");
+    }
+
+    void onTick(Ped ped, TrackedNpc& s, ModeContext& ctx, float) override {
+        const Config& c = *ctx.cfg;
+        if (!s.human || s.role == 2) return;   // victims are driven by their robber
+
+        if (s.role == 1) {
+            TrackedNpc* v = trackedOf(ctx, s.partner);
+            if (!v || v->partner != ped || !alive(s.partner) || !alive(ped)) { finish(ped, s, s.partner, v, ctx, true); return; }
+            if (v->nextSpeech && ctx.now >= v->nextSpeech) {   // the victim answers a moment after the threat
+                if (speech::globalSlot(ctx.now, 300)) speech::sayOneOf(s.partner, c.robVictimLines, c.robSpeechParams, ped);
+                v->nextSpeech = 0;
+            }
+            if (ctx.now < s.phaseUntil) return;
+            if (s.phase == 1) {   // hold-up over: hand over the money
+                if (speech::globalSlot(ctx.now, 300)) speech::sayOneOf(s.partner, c.robHandOverLines, c.robSpeechParams, ped);
+                s.phase = 2;
+                s.phaseUntil = ctx.now + 2500;
+                return;
+            }
+            finish(ped, s, s.partner, v, ctx, false);
+            return;
+        }
+
+        // free: look for a victim
+        if (ctx.now < s.cooldownUntil || IS_PED_RAGDOLL(ped) || IS_PED_ON_MOUNT(ped) || IS_PED_IN_COMBAT(ped, ctx.player) || IS_PED_FLEEING(ped)) return;
+        Ped victim = findPartner(ped, ctx, c.robDistance, [](Ped) { return true; });
+        if (!victim) { s.cooldownUntil = ctx.now + 2000; return; }
+        TrackedNpc& v = (*ctx.tracked)[victim];
+
+        s.role = 1; s.partner = victim; s.phase = 1;
+        s.phaseUntil = ctx.now + static_cast<unsigned long>(c.robHoldupSec) * 1000;
+        v.role = 2; v.partner = ped; v.phase = 1;
+        v.nextSpeech = ctx.now + 1200;
+
+        SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(ped, true); s.eventsBlocked = true;
+        SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(victim, true); v.eventsBlocked = true;
+        Hash w = joaat(c.robWeapon);
+        if (!HAS_PED_GOT_WEAPON(ped, w)) { GIVE_WEAPON_TO_PED(ped, w, 30, true, kAddReasonDefault); s.weaponGiven = w; }
+        else SET_CURRENT_PED_WEAPON(ped, w, true);
+        int holdMs = c.robHoldupSec * 1000 + 4000;
+        TASK_AIM_GUN_AT_ENTITY(ped, victim, holdMs);
+        TASK_HANDS_UP(victim, holdMs, ped, 1000, 1);
+        if (speech::globalSlot(ctx.now, 300)) speech::sayOneOf(ped, c.robRobberLines, c.robSpeechParams, victim);
+        logfile::debug("robbery: %d holds up %d", ped, victim);
+    }
+
+    void onExit(Ped ped, TrackedNpc& s, ModeContext& ctx) override {
+        if (s.role == 1) {
+            finish(ped, s, s.partner, trackedOf(ctx, s.partner), ctx, true);
+        } else if (s.role == 2) {
+            TrackedNpc* r = trackedOf(ctx, s.partner);
+            if (r && r->partner == ped) finish(s.partner, *r, ped, &s, ctx, true);
+        }
+        if (!alive(ped)) return;
+        if (s.eventsBlocked) { SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(ped, false); s.eventsBlocked = false; }
+        if (s.weaponGiven) { REMOVE_WEAPON_FROM_PED(ped, s.weaponGiven); s.weaponGiven = 0; }
+        CLEAR_PED_TASKS(ped);
+    }
+};
+
+// ---- Lasso (experimental) -------------------------------------------------------------
+// Everyone gets a lasso. Pairs: one throws (TASK_LASSO_PED), hogties the catch, the catch
+// breaks free after a few seconds and may take revenge next round.
+
+struct LassoMode : NpcMode {
+    const Hash lasso = joaat("WEAPON_LASSO");
+
+    Mode id() const override { return Mode::Lasso; }
+
+    void onEnter(Ped ped, TrackedNpc& s, ModeContext& ctx) override {
+        if (!s.human) return;
+        if (!HAS_PED_GOT_WEAPON(ped, lasso)) { GIVE_WEAPON_TO_PED(ped, lasso, 1, false, kAddReasonDefault); s.weaponGiven = lasso; }
+        _SET_PED_CAN_BE_LASSOED(ped, true);
+        SET_PED_LASSO_HOGTIE_FLAG(ped, 0, true);   // can be lassoed
+        SET_PED_LASSO_HOGTIE_FLAG(ped, 2, true);   // by friendly AI
+        SET_PED_LASSO_HOGTIE_FLAG(ped, 4, true);   // runs the lasso react task
+        SET_PED_LASSO_HOGTIE_FLAG(ped, 7, true);   // can be reeled in
+        SET_PED_LASSO_HOGTIE_FLAG(ped, 6, false);  // no attack on attach
+        freeRole(s, ctx.now + static_cast<unsigned long>(ctx.randRange(500, 5000)));
+    }
+
+    void finish(Ped lassoer, TrackedNpc& l, Ped target, TrackedNpc* t, ModeContext& ctx, bool aborted) {
+        const Config& c = *ctx.cfg;
+        if (alive(lassoer)) {
+            SET_PED_KEEP_TASK(lassoer, false);
+            CLEAR_PED_TASKS(lassoer);
+            SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(lassoer, false);
+            TASK_WANDER_STANDARD(lassoer);
+        }
+        l.eventsBlocked = false;
+        freeRole(l, ctx.now + ctx.randMs(c.lassoCooldownMinSec, c.lassoCooldownMaxSec));
+        if (t) {
+            if (alive(target)) {
+                if (IS_PED_HOGTIED(target) || IS_PED_BEING_HOGTIED(target)) _SET_HOGTIE_ESCAPE_TIMER(target, 1.0f);
+                else if (!IS_PED_LASSOED(target)) CLEAR_PED_TASKS(target);
+            }
+            // the catch gets a short break and may lasso back
+            freeRole(*t, ctx.now + static_cast<unsigned long>(ctx.randRange(2000, 6000)));
+        }
+        logfile::debug("lasso: %d -> %d %s", lassoer, target, aborted ? "(gave up)" : "(done)");
+    }
+
+    void onTick(Ped ped, TrackedNpc& s, ModeContext& ctx, float) override {
+        const Config& c = *ctx.cfg;
+        if (!s.human || s.role == 2) return;
+
+        if (s.role == 1) {
+            TrackedNpc* t = trackedOf(ctx, s.partner);
+            Ped target = s.partner;
+            if (!t || t->partner != ped || !alive(target) || !alive(ped)) { finish(ped, s, target, t, ctx, true); return; }
+            if (s.phase == 1) {   // throwing
+                if (IS_PED_LASSOED(target)) {
+                    logfile::debug("lasso: %d caught %d", ped, target);
+                    if (speech::globalSlot(ctx.now, 300)) speech::sayOneOf(target, c.lassoTargetLines, c.lassoSpeechParams, ped);
+                    if (c.lassoHogtie) {
+                        TASK_HOGTIE_TARGET_PED(ped, target);
+                        if (speech::globalSlot(ctx.now, 300)) speech::sayOneOf(ped, c.lassoLassoerLines, c.lassoSpeechParams, target);
+                        s.phase = 2;
+                        s.phaseUntil = ctx.now + 15000;
+                    } else {
+                        s.phase = 3;
+                        s.phaseUntil = ctx.now + static_cast<unsigned long>(c.lassoHogtieHoldSec) * 1000;
+                    }
+                } else if (ctx.now >= s.phaseUntil) {
+                    finish(ped, s, target, t, ctx, true);
+                }
+                return;
+            }
+            if (s.phase == 2) {   // hogtying
+                if (IS_PED_HOGTIED(target)) {
+                    _SET_HOGTIE_ESCAPE_TIMER(target, static_cast<float>(c.lassoHogtieHoldSec));
+                    s.phase = 3;
+                    s.phaseUntil = ctx.now + static_cast<unsigned long>(c.lassoHogtieHoldSec) * 1000 + 3000;
+                    logfile::debug("lasso: %d hogtied %d", ped, target);
+                } else if (ctx.now >= s.phaseUntil) {
+                    finish(ped, s, target, t, ctx, true);
+                }
+                return;
+            }
+            // phase 3: holding; done when the timer runs out or the catch broke free
+            if (ctx.now >= s.phaseUntil || (c.lassoHogtie && !IS_PED_HOGTIED(target) && !IS_PED_BEING_HOGTIED(target)))
+                finish(ped, s, target, t, ctx, false);
+            return;
+        }
+
+        // free: pick a target
+        if (ctx.now < s.cooldownUntil || IS_PED_RAGDOLL(ped) || IS_PED_ON_MOUNT(ped) || IS_PED_LASSOED(ped) ||
+            IS_PED_HOGTIED(ped) || IS_PED_IN_COMBAT(ped, ctx.player))
+            return;
+        Ped target = findPartner(ped, ctx, c.lassoDistance, [](Ped p) { return !IS_PED_LASSOED(p) && !IS_PED_HOGTIED(p); });
+        if (!target) { s.cooldownUntil = ctx.now + 2000; return; }
+        TrackedNpc& t = (*ctx.tracked)[target];
+
+        s.role = 1; s.partner = target; s.phase = 1;
+        s.phaseUntil = ctx.now + static_cast<unsigned long>(c.lassoTimeoutSec) * 1000;
+        t.role = 2; t.partner = ped; t.phase = 1;
+        SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(ped, true); s.eventsBlocked = true;
+        TASK_LASSO_PED(ped, target);
+        SET_PED_KEEP_TASK(ped, true);
+        if (c.lassoTargetFlees) TASK_SMART_FLEE_PED(target, ped, 30.0f, c.lassoTimeoutSec * 1000, 0, c.lassoFleeSpeed);
+        logfile::debug("lasso: %d throws at %d", ped, target);
+    }
+
+    void onExit(Ped ped, TrackedNpc& s, ModeContext& ctx) override {
+        if (s.role == 1) {
+            finish(ped, s, s.partner, trackedOf(ctx, s.partner), ctx, true);
+        } else if (s.role == 2) {
+            TrackedNpc* l = trackedOf(ctx, s.partner);
+            if (l && l->partner == ped) finish(s.partner, *l, ped, &s, ctx, true);
+        }
+        if (!alive(ped)) return;
+        if (s.eventsBlocked) { SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(ped, false); s.eventsBlocked = false; }
+        SET_PED_LASSO_HOGTIE_FLAG(ped, 2, false);
+        if (IS_PED_HOGTIED(ped) || IS_PED_BEING_HOGTIED(ped)) _SET_HOGTIE_ESCAPE_TIMER(ped, 0.5f);
+        if (s.weaponGiven) { REMOVE_WEAPON_FROM_PED(ped, s.weaponGiven); s.weaponGiven = 0; }
+        SET_PED_KEEP_TASK(ped, false);
+        if (!IS_PED_HOGTIED(ped)) CLEAR_PED_TASKS(ped);
+    }
+};
+
 } // namespace
 
 // ---- manager -----------------------------------------------------------------------
@@ -246,6 +554,9 @@ NpcManager::NpcManager(const Config& cfg, Settings& settings)
     m_modes[static_cast<int>(Mode::Insult)] = std::make_unique<InsultMode>();
     m_modes[static_cast<int>(Mode::Aggressive)] = std::make_unique<AggressiveMode>();
     m_modes[static_cast<int>(Mode::Panic)] = std::make_unique<PanicMode>();
+    m_modes[static_cast<int>(Mode::Legs)] = std::make_unique<LegsMode>();
+    m_modes[static_cast<int>(Mode::Robbery)] = std::make_unique<RobberyMode>();
+    m_modes[static_cast<int>(Mode::Lasso)] = std::make_unique<LassoMode>();
 }
 
 NpcMode& NpcManager::current() { return *m_modes[static_cast<int>(m_mode)]; }
@@ -259,6 +570,7 @@ ModeContext NpcManager::makeContext(Ped player) {
     ctx.radius = static_cast<float>(m_settings.radius);
     ctx.exitRadius = ctx.radius * 2.0f;
     ctx.rng = &m_rng;
+    ctx.tracked = &m_tracked;
     return ctx;
 }
 

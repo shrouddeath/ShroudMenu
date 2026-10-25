@@ -33,7 +33,8 @@ std::vector<std::string> splitList(const std::string& text);
 std::string trim(const std::string& s);
 std::string lower(const std::string& s);
 
-enum class Mode { Off = 0, Drunk, Insult, Aggressive, Panic, Count };
+// Legs, Robbery and Lasso are experimental (see [Legs], [Robbery], [Lasso] in the ini).
+enum class Mode { Off = 0, Drunk, Insult, Aggressive, Panic, Legs, Robbery, Lasso, Count };
 const char* modeName(Mode m);
 
 // Values the user can change in the menu. Persisted in ShroudMenu.state.
@@ -102,6 +103,33 @@ struct Config {
     float panicSpeed = 3.0f;
     int panicFleeType = 0;
     std::vector<std::string> panicLines;
+
+    // legs (experimental): limp via injured locomotion, crawl via the writhe state
+    bool legsLimp = true;
+    bool legsCrawl = true;
+    int legsHealthBefore = 200;
+    int legsDamage = 120;
+    int legsBoneId = 65478;   // skel_l_thigh (femga bone list); 0 = generic hit
+    float legsGroundBehaviour = 1.0f;
+
+    // robbery (experimental)
+    float robDistance = 12.0f;
+    int robHoldupSec = 5;
+    int robCooldownMinSec = 8, robCooldownMaxSec = 20;
+    std::string robWeapon = "WEAPON_REVOLVER_CATTLEMAN";
+    Hash robSpeechParams = 0;
+    std::vector<std::string> robRobberLines, robVictimLines, robHandOverLines, robFleeLines;
+
+    // lasso (experimental)
+    float lassoDistance = 15.0f;
+    bool lassoHogtie = true;
+    int lassoHogtieHoldSec = 6;
+    int lassoTimeoutSec = 15;
+    int lassoCooldownMinSec = 5, lassoCooldownMaxSec = 15;
+    bool lassoTargetFlees = true;
+    float lassoFleeSpeed = 1.0f;
+    Hash lassoSpeechParams = 0;
+    std::vector<std::string> lassoLassoerLines, lassoTargetLines;
 
     // ui
     bool textBackendBg = true;

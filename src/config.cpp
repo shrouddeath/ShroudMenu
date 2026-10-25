@@ -96,6 +96,9 @@ const char* modeName(Mode m) {
     case Mode::Insult: return "Insulting";
     case Mode::Aggressive: return "Aggressive";
     case Mode::Panic: return "Panic";
+    case Mode::Legs: return "Lame legs";
+    case Mode::Robbery: return "Robbery";
+    case Mode::Lasso: return "Lasso";
     default: return "?";
     }
 }
@@ -228,6 +231,36 @@ Config loadConfig(const std::string& dir) {
     c.panicFleeType = r.integer("Panic", "FleeType", c.panicFleeType);
     c.panicLines = r.list("Panic", "Lines",
                           "PANIC_HELP,SCARED_HELP,GENERIC_FRIGHTENED_HIGH,GENERIC_SHOCKED_HIGH,PLEAD,SCREAM_TERROR,SCREAM_SHOCKED,GUN_RUN");
+
+    c.legsLimp = r.boolean("Legs", "Limp", c.legsLimp);
+    c.legsCrawl = r.boolean("Legs", "Crawl", c.legsCrawl);
+    c.legsHealthBefore = r.integer("Legs", "HealthBefore", c.legsHealthBefore);
+    c.legsDamage = r.integer("Legs", "Damage", c.legsDamage);
+    c.legsBoneId = r.integer("Legs", "BoneId", c.legsBoneId);
+    c.legsGroundBehaviour = r.real("Legs", "GroundBehaviour", c.legsGroundBehaviour);
+
+    c.robDistance = r.real("Robbery", "DistanceM", c.robDistance);
+    c.robHoldupSec = std::max(2, r.integer("Robbery", "HoldupSec", c.robHoldupSec));
+    c.robCooldownMinSec = r.integer("Robbery", "CooldownMinSec", c.robCooldownMinSec);
+    c.robCooldownMaxSec = r.integer("Robbery", "CooldownMaxSec", c.robCooldownMaxSec);
+    c.robWeapon = r.str("Robbery", "Weapon", c.robWeapon);
+    c.robSpeechParams = parseSpeechParams(r.str("Robbery", "SpeechParams", "force"));
+    c.robRobberLines = r.list("Robbery", "RobberLines", "CHALLENGE_THREATEN_ARMED,CHALLENGE_THREATEN,GENERIC_CURSE_HIGH");
+    c.robVictimLines = r.list("Robbery", "VictimLines", "HANDS_UP,HOLDUP_DONT_SHOOT,HOLDUP_DONT_KILL_ME,PLEAD,INTIMIDATED_ROB");
+    c.robHandOverLines = r.list("Robbery", "HandOverLines", "HAND_OVER_MONEY,HOLDUP_GIVE_CASH,PLEAD");
+    c.robFleeLines = r.list("Robbery", "FleeLines", "HOLDUP_RUN,HOLDUP_HELP,PANIC_HELP");
+
+    c.lassoDistance = r.real("Lasso", "DistanceM", c.lassoDistance);
+    c.lassoHogtie = r.boolean("Lasso", "Hogtie", c.lassoHogtie);
+    c.lassoHogtieHoldSec = r.integer("Lasso", "HogtieHoldSec", c.lassoHogtieHoldSec);
+    c.lassoTimeoutSec = std::max(3, r.integer("Lasso", "TimeoutSec", c.lassoTimeoutSec));
+    c.lassoCooldownMinSec = r.integer("Lasso", "CooldownMinSec", c.lassoCooldownMinSec);
+    c.lassoCooldownMaxSec = r.integer("Lasso", "CooldownMaxSec", c.lassoCooldownMaxSec);
+    c.lassoTargetFlees = r.boolean("Lasso", "TargetFlees", c.lassoTargetFlees);
+    c.lassoFleeSpeed = r.real("Lasso", "FleeSpeed", c.lassoFleeSpeed);
+    c.lassoSpeechParams = parseSpeechParams(r.str("Lasso", "SpeechParams", "force_shouted_critical"));
+    c.lassoLassoerLines = r.list("Lasso", "LassoerLines", "HOGTIES_MALE,HOGTIES_FEMALE,CHALLENGE_THREATEN");
+    c.lassoTargetLines = r.list("Lasso", "TargetLines", "PLEAD,GENERIC_FRIGHTENED_HIGH,SCARED_HELP");
 
     c.textBackendBg = lower(r.str("UI", "TextBackend", "bg")) != "legacy";
     c.menuX = r.real("UI", "X", c.menuX);

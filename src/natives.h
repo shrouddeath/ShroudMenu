@@ -168,6 +168,40 @@ inline bool IS_ANY_SPEECH_PLAYING(Ped p) { return native::invoke<int>(0x72907235
 inline void SET_PED_IS_DRUNK(Ped p, bool on) { native::invoke<void>(0x95D2D383D5396B8A, p, on ? 1 : 0); }
 inline void PLAY_SOUND_FRONTEND(const char* name, const char* set) { native::invoke<void>(0x67C540AA08E4A6F5, name, set, 1, 0); }
 
+// ---- EXPERIMENTAL: injured legs / writhe -------------------------------------
+inline void _FAKE_SET_PED_LOCO_INJURED(Ped p, bool on) { native::invoke<void>(0x8B3CB08158E98481, p, on ? 1 : 0); }
+inline void SET_PED_INJURED_ON_GROUND_BEHAVIOUR(Ped p, float v) { native::invoke<void>(0xEC4B4B3B9908052A, p, v); }
+inline void DISABLE_PED_INJURED_ON_GROUND_BEHAVIOUR(Ped p) { native::invoke<void>(0x733C87D4CE22BEA2, p); }
+inline void SET_PAUSE_PED_WRITHE_BLEEDOUT(Ped p, bool on) { native::invoke<void>(0x925A160133003AC6, p, on ? 1 : 0); }
+inline void REVIVE_INJURED_PED(Ped p) { native::invoke<void>(0x8D8ACD8388CD99CE, p); }
+inline bool IS_PED_IN_WRITHE(Ped p) { return native::invoke<int>(0xDEB6D52126E7D640, p) != 0; }
+inline bool IS_PED_INJURED(Ped p) { return native::invoke<int>(0x84A2DD9AC37C35C1, p) != 0; }
+inline void APPLY_DAMAGE_TO_PED(Ped p, int amount, bool damageArmour, int boneId, Ped killer) {
+    native::invoke<void>(0x697157CED63F18D4, p, amount, damageArmour ? 1 : 0, boneId, killer);
+}
+inline void SET_PED_MAX_HEALTH(Ped p, int value) { native::invoke<void>(0xF5F6378C4F3419D3, p, value); }
+
+// ---- EXPERIMENTAL: robbery ---------------------------------------------------
+inline void TASK_AIM_GUN_AT_ENTITY(Ped p, Entity target, int durationMs) { native::invoke<void>(0x9B53BB6E8943AF53, p, target, durationMs, 0, 0); }
+// flags: 0 = HANDS_UP_NOTHING, 1 = HANDS_UP_STRAIGHT_TO_LOOP
+inline void TASK_HANDS_UP(Ped p, int durationMs, Ped facing, int timeToFaceMs, int flags) {
+    native::invoke<void>(0xF2EAB31979A7F910, p, durationMs, facing, timeToFaceMs, flags);
+}
+inline void TASK_WANDER_STANDARD(Ped p) { native::invoke<void>(0xBB9CE077274F6A1B, p, 10.0f, 10); }
+inline void SET_CURRENT_PED_WEAPON(Ped p, Hash weapon, bool equipNow) { native::invoke<void>(0xADF692B254977C0C, p, weapon, equipNow ? 1 : 0, 0, 0, 0); }
+
+// ---- EXPERIMENTAL: lasso -----------------------------------------------------
+inline void TASK_LASSO_PED(Ped p, Ped target) { native::invoke<void>(0xC716EB2BD16370A3, p, target); }
+inline void TASK_HOGTIE_TARGET_PED(Ped p, Ped target) { native::invoke<void>(0x27829AFD3E03AC1A, p, target); }
+inline bool IS_PED_LASSOED(Ped p) { return native::invoke<int>(0x9682F850056C9ADE, p) != 0; }
+inline bool IS_PED_HOGTIED(Ped p) { return native::invoke<int>(0x3AA24CCC0D451379, p) != 0; }
+inline bool IS_PED_BEING_HOGTIED(Ped p) { return native::invoke<int>(0xD453BB601D4A606E, p) != 0; }
+inline void _SET_PED_CAN_BE_LASSOED(Ped p, bool on) { native::invoke<void>(0xFD6943B6DF77E449, p, on ? 1 : 0); }
+// flags (femga): 0 CAN_BE_LASSOED, 2 CAN_BE_LASSOED_BY_FRIENDLY_AI, 4 CAN_RUN_PRIMARY_LASSO_REACT_TASK,
+// 5 SHOULD_FLEE_ON_ATTACH, 6 SHOULD_ATTACK_ON_ATTACH, 7 CAN_BE_REELED_IN
+inline void SET_PED_LASSO_HOGTIE_FLAG(Ped p, int flag, bool on) { native::invoke<void>(0xAE6004120C18DF97, p, flag, on ? 1 : 0); }
+inline void _SET_HOGTIE_ESCAPE_TIMER(Ped p, float seconds) { native::invoke<void>(0xAB591AE6B48B913E, p, seconds); }
+
 // ---- LAW ---------------------------------------------------------------------
 inline void _SET_LAW_DISABLED(bool on) { native::invoke<void>(0x8DE82BC774F3B862, on ? 1 : 0); }
 
